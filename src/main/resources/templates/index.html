@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="nl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Boss Log Sync</title>
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+<main class="shell shell--narrow">
+    <section class="hero">
+        <p class="eyebrow">OSRS Group Sharing</p>
+        <h1>Maak privégroepen voor gedeelde boss uniques</h1>
+        <p class="lead">
+            Maak eerst een privé-groep aan. De server genereert dan een unieke <code>group code</code> die alleen jouw spelers invullen in de RuneLite-plugin.
+            Open in-game de relevante bosspagina's in de collection log, waarna de plugin die uniques synchroniseert.
+            Zo blijven groepen volledig gescheiden van elkaar.
+        </p>
+    </section>
+
+    <section class="card">
+        <h2>Nieuwe groep aanmaken</h2>
+        <form class="stack-form" method="post" action="/groups">
+            <label for="groupName">Groepsnaam</label>
+            <input id="groupName" name="groupName" type="text" maxlength="64" placeholder="Bijvoorbeeld Team Thomas" required>
+            <button type="submit">Maak groep</button>
+        </form>
+        <p>
+            Na het aanmaken kom je op de overzichtspagina terecht. Daar zie je de gegenereerde group code die je met je eigen spelers deelt.
+        </p>
+    </section>
+
+    <section class="card">
+        <h2>Gebruik</h2>
+        <ol class="steps">
+            <li>Start deze Spring Boot server op poort <code>8080</code>.</li>
+            <li>Maak hierboven een groep aan en noteer de group code.</li>
+            <li>Installeer de plugin-jar uit <code>runelite-plugin/build/libs</code> in RuneLite.</li>
+            <li>Geef elke deelnemende speler dezelfde group code en server URL <code>http://localhost:8080</code> of je eigen host.</li>
+            <li>Open per speler bosspagina's in de collection log, bijvoorbeeld General Graardor of Demonic gorillas.</li>
+            <li>Bekijk het groepsoverzicht op <code>/groups/{jouw-code}</code>.</li>
+        </ol>
+    </section>
+
+    <section class="card">
+        <h2>API</h2>
+        <pre><code>POST /api/groups
+Body:
+{
+  "groupName": "Team Thomas"
+}</code></pre>
+        <pre><code>PUT /api/group-inventory/members/{memberName}
+Header: X-Group-Code: grp-ab12-cd34
+Body:
+{
+  "items": [
+    {"itemName": "Bandos chestplate", "quantity": 1},
+    {"itemName": "Bandos tassets", "quantity": 3},
+    {"itemName": "Zenyte shard", "quantity": 2}
+  ]
+}</code></pre>
+        <pre><code>GET /api/group-inventory
+Header: X-Group-Code: grp-ab12-cd34</code></pre>
+    </section>
+</main>
+</body>
+</html>

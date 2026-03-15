@@ -1,0 +1,202 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+    --bg: #f5efe4;
+    --panel: rgba(255, 251, 245, 0.86);
+    --panel-strong: #fffaf2;
+    --text: #1d1a16;
+    --muted: #6a6259;
+    --accent: #86613f;
+    --accent-soft: #dbc8ad;
+    --border: rgba(29, 26, 22, 0.12);
+    --shadow: 0 22px 60px rgba(72, 51, 29, 0.16);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Space Grotesk", sans-serif;
+    color: var(--text);
+    background:
+            radial-gradient(circle at top left, rgba(230, 191, 123, 0.4), transparent 32%),
+            radial-gradient(circle at top right, rgba(135, 162, 112, 0.22), transparent 28%),
+            linear-gradient(160deg, #efe4d2 0%, #f8f3eb 52%, #efe7db 100%);
+}
+
+code,
+pre {
+    font-family: "IBM Plex Mono", monospace;
+}
+
+.shell {
+    width: min(1180px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 3rem 0 4rem;
+}
+
+.shell--narrow {
+    width: min(860px, calc(100% - 2rem));
+}
+
+.hero {
+    margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+    margin: 0 0 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+h1,
+h2 {
+    margin: 0;
+}
+
+h1 {
+    font-size: clamp(2.2rem, 6vw, 4.4rem);
+    line-height: 0.98;
+}
+
+h2 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.lead,
+.card p {
+    color: var(--muted);
+}
+
+label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+input,
+button {
+    font: inherit;
+}
+
+input {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--panel-strong);
+    color: var(--text);
+}
+
+button {
+    border: none;
+    border-radius: 999px;
+    padding: 0.9rem 1.25rem;
+    background: var(--accent);
+    color: #fff9f0;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.stack-form {
+    display: grid;
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+}
+
+.grid,
+.member-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    margin-bottom: 1rem;
+}
+
+.member-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 1.25rem;
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    padding: 0.65rem 0;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+th {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+pre {
+    overflow-x: auto;
+    background: var(--panel-strong);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1rem;
+}
+
+.steps {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--muted);
+}
+
+.steps li + li {
+    margin-top: 0.45rem;
+}
+
+.member-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: baseline;
+}
+
+.timestamp {
+    white-space: nowrap;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+    .shell {
+        padding-top: 2rem;
+    }
+
+    .member-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="nl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Boss Unique Overview</title>
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+<main class="shell">
+    <section class="hero">
+        <p class="eyebrow">Private Group</p>
+        <h1 th:text="${overview.groupName}">Group name</h1>
+        <p class="lead">
+            Group code: <code th:text="${overview.groupKey}">grp-ab12-cd34</code><br>
+            <span th:text="${overview.memberCount}">0</span> spelers gesynchroniseerd.
+            Laatst opgebouwd op <span th:text="${overview.generatedAt}">-</span>.
+            Dit overzicht toont gelogde boss uniques, niet live bankinhoud.
+        </p>
+    </section>
+
+    <section class="grid">
+        <article class="card">
+            <h2>Legenda</h2>
+            <p>
+                <strong>Owners</strong> is hoeveel van de gesynchroniseerde spelers het item minstens 1 keer in de collection log heeft.
+                <strong>Total</strong> is het totaal aantal gelogde kopieën over alle leden heen.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>Groepstotalen</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Owners</th>
+                    <th>Total</th>
+                    <th>Members</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${overview.itemSummaries}">
+                    <td th:text="${item.itemName}">Item</td>
+                    <td th:text="${item.owners.size() + '/' + overview.memberCount}">0/0</td>
+                    <td th:text="${item.totalQuantity}">0</td>
+                    <td th:text="${item.owners.isEmpty() ? '-' : #strings.listJoin(item.owners, ', ')}">-</td>
+                </tr>
+                </tbody>
+            </table>
+        </article>
+    </section>
+
+    <section class="member-grid">
+        <article class="card" th:each="member : ${overview.members}">
+            <div class="member-header">
+                <div>
+                    <h2 th:text="${member.memberName}">Member</h2>
+                    <p>
+                        <span th:text="${member.distinctItemCount}">0</span> gelogde uniques,
+                        <span th:text="${member.totalItemCount}">0</span> totale gelogde kopieën.
+                    </p>
+                </div>
+                <p class="timestamp" th:text="${member.updatedAt}">-</p>
+            </div>
+            <table>
+                <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Aantal</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${member.items}">
+                    <td th:text="${item.itemName}">Item</td>
+                    <td th:text="${item.quantity}">0</td>
+                </tr>
+                </tbody>
+            </table>
+        </article>
+    </section>
+</main>
+</body>
+</html>
