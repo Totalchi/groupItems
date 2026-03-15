@@ -58,8 +58,10 @@ public class GimBossUniquesPlugin extends Plugin
 	@Inject
 	private LocalBossUniqueStateService localBossUniqueStateService;
 
+	@Inject
+	private GroupSyncClient groupSyncClient;
+
 	private final Object uploadLock = new Object();
-	private final GroupSyncClient groupSyncClient = new GroupSyncClient();
 	private final BossUniqueOverviewBuilder overviewBuilder = new BossUniqueOverviewBuilder();
 
 	private NavigationButton navigationButton;

@@ -18,14 +18,15 @@ class LocalBossUniqueStateService
 	private static final Type STATE_TYPE = new TypeToken<Map<String, Integer>>() { }.getType();
 
 	private final ConfigManager configManager;
-	private final Gson gson = new Gson();
+	private final Gson gson;
 
 	private Map<String, Integer> quantitiesByNormalizedName;
 
 	@Inject
-	LocalBossUniqueStateService(ConfigManager configManager)
+	LocalBossUniqueStateService(ConfigManager configManager, Gson gson)
 	{
 		this.configManager = configManager;
+		this.gson = gson;
 	}
 
 	boolean applyPage(CollectionLogPageCaptureService.CapturedPage capturedPage)
