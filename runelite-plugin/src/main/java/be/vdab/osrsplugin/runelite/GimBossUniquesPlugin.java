@@ -32,8 +32,7 @@ import org.slf4j.LoggerFactory;
 @PluginDescriptor(
 	name = "Shared Boss Uniques",
 	description = "Uploads boss collection-log data and shows shared unique progress for all participating players",
-	tags = {"group", "collection", "boss", "uniques", "shared"},
-	enabledByDefault = false
+	tags = {"group", "collection", "boss", "uniques", "shared"}
 )
 public class GimBossUniquesPlugin extends Plugin
 {
