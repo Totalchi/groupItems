@@ -9,6 +9,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import javax.inject.Inject;
 
 final class GroupSyncClient
 {
@@ -17,7 +18,13 @@ final class GroupSyncClient
 	private final HttpClient httpClient = HttpClient.newBuilder()
 		.connectTimeout(TIMEOUT)
 		.build();
-	private final Gson gson = new Gson();
+	private final Gson gson;
+
+	@Inject
+	GroupSyncClient(Gson gson)
+	{
+		this.gson = gson;
+	}
 
 	SyncModels.GroupOverviewResponse uploadBank(String baseUrl, String groupCode, String memberName, BankSnapshot snapshot)
 		throws IOException, InterruptedException
