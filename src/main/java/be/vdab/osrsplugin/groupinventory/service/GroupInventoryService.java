@@ -24,31 +24,39 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 @Service
 public class GroupInventoryService {
     private static final char[] CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789".toCharArray();
 
-    private final ConcurrentMap<String, GroupState> groups = new ConcurrentHashMap<>();
+    private final Map<String, GroupState> groups = new LinkedHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
+    private final GroupInventoryPersistence persistence;
+
+    public GroupInventoryService(GroupInventoryPersistence persistence) {
+        this.persistence = persistence;
+        loadPersistedGroups();
+    }
 
     public CreateGroupResponse createGroup(String groupName) {
-        var sanitizedGroupName = sanitizeGroupName(groupName);
+        synchronized (groups) {
+            var sanitizedGroupName = sanitizeGroupName(groupName);
 
-        while (true) {
-            var groupCode = generateGroupCode();
-            var groupState = new GroupState(groupCode, sanitizedGroupName, Instant.now());
-            if (groups.putIfAbsent(groupCode, groupState) == null) {
-                return new CreateGroupResponse(groupCode, sanitizedGroupName, groupState.createdAt, "/groups/" + groupCode);
+            while (true) {
+                var groupCode = generateGroupCode();
+                var groupState = new GroupState(groupCode, sanitizedGroupName, Instant.now());
+                if (!groups.containsKey(groupCode)) {
+                    groups.put(groupCode, groupState);
+                    persistGroups();
+                    return new CreateGroupResponse(groupCode, sanitizedGroupName, groupState.createdAt, "/groups/" + groupCode);
+                }
             }
         }
     }
 
     public GroupOverviewResponse updateMemberInventory(String groupCode, String memberName, InventoryUploadRequest request) {
-        var groupState = findGroup(groupCode);
-        synchronized (groupState) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
             var inventory = normalizeItems(request.items());
             var sanitizedMemberName = sanitizeMemberName(memberName);
             var memberKey = sanitizedMemberName.toLowerCase(Locale.ROOT);
@@ -56,21 +64,23 @@ public class GroupInventoryService {
                     memberKey,
                     new MemberInventory(sanitizedMemberName, Instant.now(), inventory)
             );
+            persistGroups();
             return buildOverview(groupState);
         }
     }
 
     public GroupOverviewResponse updateTargetItems(String groupCode, TargetItemsRequest request) {
-        var groupState = findGroup(groupCode);
-        synchronized (groupState) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
             groupState.targetItems = normalizeItems(request.items());
+            persistGroups();
             return buildOverview(groupState);
         }
     }
 
     public GroupOverviewResponse adjustItemQuantity(String groupCode, ManualAdjustmentRequest request) {
-        var groupState = findGroup(groupCode);
-        synchronized (groupState) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
             if (request.delta() == 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Adjustment delta cannot be zero");
             }
@@ -78,7 +88,11 @@ public class GroupInventoryService {
             var itemName = sanitizeItemName(request.itemName());
             var key = itemName.toLowerCase(Locale.ROOT);
             var existing = groupState.manualAdjustments.get(key);
-            var nextQuantity = (existing == null ? 0 : existing.quantity()) + request.delta();
+            var nextQuantity = safeAdd(
+                    existing == null ? 0 : existing.quantity(),
+                    request.delta(),
+                    "Adjustment quantity is too large for " + itemName
+            );
 
             if (nextQuantity == 0) {
                 groupState.manualAdjustments.remove(key);
@@ -86,13 +100,14 @@ public class GroupInventoryService {
                 groupState.manualAdjustments.put(key, new NamedQuantity(itemName, nextQuantity));
             }
 
+            persistGroups();
             return buildOverview(groupState);
         }
     }
 
     public GroupOverviewResponse getOverview(String groupCode) {
-        var groupState = findGroup(groupCode);
-        synchronized (groupState) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
             return buildOverview(groupState);
         }
     }
@@ -114,7 +129,11 @@ public class GroupInventoryService {
                         item.itemName().toLowerCase(Locale.ROOT),
                         ignored -> new AggregatedItem(item.itemName())
                 );
-                aggregated.loggedQuantity += item.quantity();
+                aggregated.loggedQuantity = safeAdd(
+                        aggregated.loggedQuantity,
+                        item.quantity(),
+                        "Logged quantity is too large for " + item.itemName()
+                );
                 aggregated.owners.add(member.memberName());
             }
         }
@@ -124,7 +143,11 @@ public class GroupInventoryService {
                     adjustment.name().toLowerCase(Locale.ROOT),
                     ignored -> new AggregatedItem(adjustment.name())
             );
-            aggregated.manualAdjustmentQuantity += adjustment.quantity();
+            aggregated.manualAdjustmentQuantity = safeAdd(
+                    aggregated.manualAdjustmentQuantity,
+                    adjustment.quantity(),
+                    "Manual adjustment quantity is too large for " + adjustment.name()
+            );
         }
 
         var itemSummaries = itemIndex.values().stream()
@@ -134,7 +157,14 @@ public class GroupInventoryService {
                         item.displayName,
                         item.loggedQuantity,
                         item.manualAdjustmentQuantity,
-                        Math.max(item.loggedQuantity + item.manualAdjustmentQuantity, 0),
+                        Math.max(
+                                safeAdd(
+                                        item.loggedQuantity,
+                                        item.manualAdjustmentQuantity,
+                                        "Total quantity is too large for " + item.displayName
+                                ),
+                                0
+                        ),
                         List.copyOf(item.owners),
                         memberNames.stream().filter(member -> !item.owners.contains(member)).toList()
                 ))
@@ -146,7 +176,14 @@ public class GroupInventoryService {
                     var aggregated = itemIndex.get(target.name().toLowerCase(Locale.ROOT));
                     var currentQuantity = aggregated == null
                             ? 0
-                            : Math.max(aggregated.loggedQuantity + aggregated.manualAdjustmentQuantity, 0);
+                            : Math.max(
+                                    safeAdd(
+                                            aggregated.loggedQuantity,
+                                            aggregated.manualAdjustmentQuantity,
+                                            "Current quantity is too large for " + target.name()
+                                    ),
+                                    0
+                            );
                     var owners = aggregated == null ? List.<String>of() : List.copyOf(aggregated.owners);
                     return new TargetProgressResponse(
                             target.name(),
@@ -196,7 +233,11 @@ public class GroupInventoryService {
             var itemName = sanitizeItemName(itemRequest.itemName());
             var key = itemName.toLowerCase(Locale.ROOT);
             var existing = normalizedItems.get(key);
-            var quantity = existing == null ? itemRequest.quantity() : existing.quantity() + itemRequest.quantity();
+            var quantity = safeAdd(
+                    existing == null ? 0 : existing.quantity(),
+                    itemRequest.quantity(),
+                    "Quantity is too large for " + itemName
+            );
             normalizedItems.put(key, new NamedQuantity(itemName, quantity));
         }
         return normalizedItems;
@@ -266,6 +307,107 @@ public class GroupInventoryService {
         return builder.toString();
     }
 
+    private void loadPersistedGroups() {
+        for (var entry : persistence.load().entrySet()) {
+            groups.put(entry.getKey(), toGroupState(entry.getValue()));
+        }
+    }
+
+    private void persistGroups() {
+        var persistedGroups = new LinkedHashMap<String, GroupInventoryPersistence.StoredGroupState>();
+        for (var entry : groups.entrySet()) {
+            persistedGroups.put(entry.getKey(), toStoredGroupState(entry.getValue()));
+        }
+        persistence.save(persistedGroups);
+    }
+
+    private GroupState toGroupState(GroupInventoryPersistence.StoredGroupState storedGroupState) {
+        var memberMap = new LinkedHashMap<String, MemberInventory>();
+        if (storedGroupState.members() != null) {
+            for (var entry : storedGroupState.members().entrySet()) {
+                var storedMember = entry.getValue();
+                memberMap.put(
+                        entry.getKey(),
+                        new MemberInventory(
+                                storedMember.memberName(),
+                                storedMember.updatedAt(),
+                                toNamedQuantityMap(storedMember.items())
+                        )
+                );
+            }
+        }
+
+        return new GroupState(
+                storedGroupState.groupCode(),
+                storedGroupState.groupName(),
+                storedGroupState.createdAt(),
+                memberMap,
+                toNamedQuantityMap(storedGroupState.targetItems()),
+                toNamedQuantityMap(storedGroupState.manualAdjustments())
+        );
+    }
+
+    private GroupInventoryPersistence.StoredGroupState toStoredGroupState(GroupState groupState) {
+        var storedMembers = new LinkedHashMap<String, GroupInventoryPersistence.StoredMemberInventory>();
+        for (var entry : groupState.members.entrySet()) {
+            var member = entry.getValue();
+            storedMembers.put(
+                    entry.getKey(),
+                    new GroupInventoryPersistence.StoredMemberInventory(
+                            member.memberName(),
+                            member.updatedAt(),
+                            toStoredNamedQuantityMap(member.items())
+                    )
+            );
+        }
+
+        return new GroupInventoryPersistence.StoredGroupState(
+                groupState.groupCode,
+                groupState.groupName,
+                groupState.createdAt,
+                storedMembers,
+                toStoredNamedQuantityMap(groupState.targetItems),
+                toStoredNamedQuantityMap(groupState.manualAdjustments)
+        );
+    }
+
+    private LinkedHashMap<String, NamedQuantity> toNamedQuantityMap(
+            Map<String, GroupInventoryPersistence.StoredNamedQuantity> storedItems
+    ) {
+        var namedQuantities = new LinkedHashMap<String, NamedQuantity>();
+        if (storedItems == null) {
+            return namedQuantities;
+        }
+
+        for (var entry : storedItems.entrySet()) {
+            var storedQuantity = entry.getValue();
+            namedQuantities.put(entry.getKey(), new NamedQuantity(storedQuantity.name(), storedQuantity.quantity()));
+        }
+        return namedQuantities;
+    }
+
+    private LinkedHashMap<String, GroupInventoryPersistence.StoredNamedQuantity> toStoredNamedQuantityMap(
+            Map<String, NamedQuantity> items
+    ) {
+        var storedItems = new LinkedHashMap<String, GroupInventoryPersistence.StoredNamedQuantity>();
+        for (var entry : items.entrySet()) {
+            var quantity = entry.getValue();
+            storedItems.put(
+                    entry.getKey(),
+                    new GroupInventoryPersistence.StoredNamedQuantity(quantity.name(), quantity.quantity())
+            );
+        }
+        return storedItems;
+    }
+
+    private int safeAdd(int base, int delta, String message) {
+        try {
+            return Math.addExact(base, delta);
+        } catch (ArithmeticException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message, exception);
+        }
+    }
+
     private static final class GroupState {
         private final String groupCode;
         private final String groupName;
@@ -278,6 +420,22 @@ public class GroupInventoryService {
             this.groupCode = groupCode;
             this.groupName = groupName;
             this.createdAt = createdAt;
+        }
+
+        private GroupState(
+                String groupCode,
+                String groupName,
+                Instant createdAt,
+                Map<String, MemberInventory> members,
+                Map<String, NamedQuantity> targetItems,
+                Map<String, NamedQuantity> manualAdjustments
+        ) {
+            this.groupCode = groupCode;
+            this.groupName = groupName;
+            this.createdAt = createdAt;
+            this.members.putAll(members);
+            this.targetItems = new LinkedHashMap<>(targetItems);
+            this.manualAdjustments.putAll(manualAdjustments);
         }
     }
 

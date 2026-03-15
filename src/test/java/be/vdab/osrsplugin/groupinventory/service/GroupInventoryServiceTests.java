@@ -2,15 +2,33 @@ package be.vdab.osrsplugin.groupinventory.service;
 
 import be.vdab.osrsplugin.groupinventory.dto.InventoryUploadRequest;
 import be.vdab.osrsplugin.groupinventory.dto.ItemQuantityRequest;
+import be.vdab.osrsplugin.groupinventory.dto.ManualAdjustmentRequest;
 import be.vdab.osrsplugin.groupinventory.dto.TargetItemsRequest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GroupInventoryServiceTests {
-    private final GroupInventoryService groupInventoryService = new GroupInventoryService();
+    @TempDir
+    Path tempDir;
+
+    private GroupInventoryService groupInventoryService;
+
+    @BeforeEach
+    void setUp() {
+        groupInventoryService = new GroupInventoryService(
+                new GroupInventoryPersistence(
+                        tempDir.resolve("group-state.bin").toString()
+                )
+        );
+    }
 
     @Test
     void overviewAggregatesItemsAndTargetsAcrossMembers() {
@@ -109,5 +127,41 @@ class GroupInventoryServiceTests {
         assertThat(resetSummary.manualAdjustmentQuantity()).isZero();
         assertThat(resetSummary.totalQuantity()).isEqualTo(4);
         assertThat(resetOverview.manualAdjustments()).isEmpty();
+    }
+
+    @Test
+    void stateSurvivesServiceRestart() {
+        var createdGroup = groupInventoryService.createGroup("Team Gamma");
+        groupInventoryService.updateMemberInventory(createdGroup.groupCode(), "Alice", new InventoryUploadRequest(List.of(
+                new ItemQuantityRequest("Bandos tassets", 2)
+        )));
+        groupInventoryService.adjustItemQuantity(createdGroup.groupCode(), new ManualAdjustmentRequest("Bandos tassets", -1));
+
+        var reloadedService = new GroupInventoryService(
+                new GroupInventoryPersistence(
+                        tempDir.resolve("group-state.bin").toString()
+                )
+        );
+
+        var overview = reloadedService.getOverview(createdGroup.groupCode());
+        assertThat(overview.groupName()).isEqualTo("Team Gamma");
+        assertThat(overview.members()).extracting(member -> member.memberName()).containsExactly("Alice");
+        assertThat(overview.manualAdjustments()).extracting(adjustment -> adjustment.adjustmentQuantity())
+                .containsExactly(-1);
+        assertThat(overview.itemSummaries()).extracting(item -> item.totalQuantity()).containsExactly(1);
+    }
+
+    @Test
+    void adjustmentsRejectIntegerOverflow() {
+        var createdGroup = groupInventoryService.createGroup("Team Delta");
+
+        groupInventoryService.adjustItemQuantity(createdGroup.groupCode(), new ManualAdjustmentRequest("Bandos tassets", Integer.MAX_VALUE));
+
+        assertThatThrownBy(() -> groupInventoryService.adjustItemQuantity(
+                createdGroup.groupCode(),
+                new ManualAdjustmentRequest("Bandos tassets", 1)
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Adjustment quantity is too large");
     }
 }

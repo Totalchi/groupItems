@@ -5,18 +5,29 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Path;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class GroupInventoryApiControllerTests {
+    private static final Path PERSISTENCE_PATH = Path.of("build", "test-groupinventory-api-" + UUID.randomUUID() + ".bin");
+
     @LocalServerPort
     private int port;
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("groupinventory.persistence.path", () -> PERSISTENCE_PATH.toString());
+    }
 
     @Test
     void apiStoresOverviewAndRendersGroupPage() throws Exception {
