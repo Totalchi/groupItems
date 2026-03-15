@@ -221,6 +221,11 @@ public class GimBossUniquesPlugin extends Plugin
 				Thread.currentThread().interrupt();
 				renderPlaceholder("Overview refresh interrupted.");
 			}
+			catch (RuntimeException e)
+			{
+				log.warn("Overview refresh failed", e);
+				renderPlaceholder("Overview refresh failed: " + formatRuntimeFailure(e) + ". " + localProgressText());
+			}
 		});
 	}
 
@@ -309,6 +314,11 @@ public class GimBossUniquesPlugin extends Plugin
 			Thread.currentThread().interrupt();
 			renderPlaceholder("Collection-log upload interrupted.");
 		}
+		catch (RuntimeException e)
+		{
+			log.warn("Collection log upload failed", e);
+			renderPlaceholder("Collection-log upload failed: " + formatRuntimeFailure(e) + ". " + localProgressText());
+		}
 	}
 
 	private void renderOverview(SyncModels.GroupOverviewResponse overview, String status)
@@ -357,6 +367,12 @@ public class GimBossUniquesPlugin extends Plugin
 			return preferred;
 		}
 		return fallback == null ? "" : fallback;
+	}
+
+	private String formatRuntimeFailure(RuntimeException exception)
+	{
+		String message = exception.getMessage();
+		return message == null || message.isBlank() ? exception.getClass().getSimpleName() : message;
 	}
 
 	private BufferedImage createNavigationIcon()
