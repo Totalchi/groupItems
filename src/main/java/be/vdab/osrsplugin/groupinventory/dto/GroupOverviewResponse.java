@@ -10,6 +10,7 @@ public record GroupOverviewResponse(
         int memberCount,
         List<MemberInventoryResponse> members,
         List<GroupItemSummaryResponse> itemSummaries,
-        List<TargetProgressResponse> targetProgress
+        List<TargetProgressResponse> targetProgress,
+        List<ManualAdjustmentResponse> manualAdjustments
 ) {
 }

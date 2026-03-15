@@ -50,16 +50,27 @@ class GroupInventoryApiControllerTests {
                 """);
         assertThat(targetResponse.statusCode()).isEqualTo(200);
 
+        var adjustmentResponse = sendJson(httpClient, "POST", "/api/group-inventory/adjustments", groupCode, """
+                {
+                  "itemName": "Prayer potion(4)",
+                  "delta": -2
+                }
+                """);
+        assertThat(adjustmentResponse.statusCode()).isEqualTo(200);
+        assertThat(adjustmentResponse.body()).contains("\"manualAdjustmentQuantity\":-2");
+        assertThat(adjustmentResponse.body()).contains("\"totalQuantity\":5");
+
         var overviewResponse = send(httpClient, "GET", "/api/group-inventory", groupCode, null);
         assertThat(overviewResponse.statusCode()).isEqualTo(200);
         assertThat(overviewResponse.body()).contains("\"groupName\":\"Web Team\"");
         assertThat(overviewResponse.body()).contains("\"memberCount\":1");
         assertThat(overviewResponse.body()).contains("\"memberName\":\"Alice\"");
-        assertThat(overviewResponse.body()).contains("\"missingQuantity\":3");
+        assertThat(overviewResponse.body()).contains("\"missingQuantity\":5");
+        assertThat(overviewResponse.body()).contains("\"manualAdjustments\":[{\"itemName\":\"Prayer potion(4)\",\"adjustmentQuantity\":-2}]");
 
         var pageResponse = send(httpClient, "GET", "/groups/" + groupCode, null, null);
         assertThat(pageResponse.statusCode()).isEqualTo(200);
-        assertThat(pageResponse.body()).contains("Web Team", groupCode, "Alice", "Dragon scimitar", "Prayer potion(4)");
+        assertThat(pageResponse.body()).contains("Web Team", groupCode, "Alice", "Dragon scimitar", "Prayer potion(4)", "Actieve correcties", "-2");
     }
 
     private HttpResponse<String> sendJson(HttpClient client, String method, String path, String groupCode, String body) throws Exception {

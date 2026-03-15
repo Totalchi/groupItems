@@ -5,6 +5,8 @@ import be.vdab.osrsplugin.groupinventory.dto.GroupOverviewResponse;
 import be.vdab.osrsplugin.groupinventory.dto.InventoryUploadRequest;
 import be.vdab.osrsplugin.groupinventory.dto.ItemQuantityRequest;
 import be.vdab.osrsplugin.groupinventory.dto.ItemQuantityResponse;
+import be.vdab.osrsplugin.groupinventory.dto.ManualAdjustmentRequest;
+import be.vdab.osrsplugin.groupinventory.dto.ManualAdjustmentResponse;
 import be.vdab.osrsplugin.groupinventory.dto.MemberInventoryResponse;
 import be.vdab.osrsplugin.groupinventory.dto.CreateGroupResponse;
 import be.vdab.osrsplugin.groupinventory.dto.TargetItemsRequest;
@@ -66,6 +68,28 @@ public class GroupInventoryService {
         }
     }
 
+    public GroupOverviewResponse adjustItemQuantity(String groupCode, ManualAdjustmentRequest request) {
+        var groupState = findGroup(groupCode);
+        synchronized (groupState) {
+            if (request.delta() == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Adjustment delta cannot be zero");
+            }
+
+            var itemName = sanitizeItemName(request.itemName());
+            var key = itemName.toLowerCase(Locale.ROOT);
+            var existing = groupState.manualAdjustments.get(key);
+            var nextQuantity = (existing == null ? 0 : existing.quantity()) + request.delta();
+
+            if (nextQuantity == 0) {
+                groupState.manualAdjustments.remove(key);
+            } else {
+                groupState.manualAdjustments.put(key, new NamedQuantity(itemName, nextQuantity));
+            }
+
+            return buildOverview(groupState);
+        }
+    }
+
     public GroupOverviewResponse getOverview(String groupCode) {
         var groupState = findGroup(groupCode);
         synchronized (groupState) {
@@ -90,16 +114,27 @@ public class GroupInventoryService {
                         item.itemName().toLowerCase(Locale.ROOT),
                         ignored -> new AggregatedItem(item.itemName())
                 );
-                aggregated.totalQuantity += item.quantity();
+                aggregated.loggedQuantity += item.quantity();
                 aggregated.owners.add(member.memberName());
             }
         }
 
+        for (var adjustment : groupState.manualAdjustments.values()) {
+            var aggregated = itemIndex.computeIfAbsent(
+                    adjustment.name().toLowerCase(Locale.ROOT),
+                    ignored -> new AggregatedItem(adjustment.name())
+            );
+            aggregated.manualAdjustmentQuantity += adjustment.quantity();
+        }
+
         var itemSummaries = itemIndex.values().stream()
+                .filter(item -> item.loggedQuantity > 0 || item.manualAdjustmentQuantity > 0)
                 .sorted(Comparator.comparing(AggregatedItem::displayName, String.CASE_INSENSITIVE_ORDER))
                 .map(item -> new GroupItemSummaryResponse(
                         item.displayName,
-                        item.totalQuantity,
+                        item.loggedQuantity,
+                        item.manualAdjustmentQuantity,
+                        Math.max(item.loggedQuantity + item.manualAdjustmentQuantity, 0),
                         List.copyOf(item.owners),
                         memberNames.stream().filter(member -> !item.owners.contains(member)).toList()
                 ))
@@ -109,7 +144,9 @@ public class GroupInventoryService {
                 .sorted(Comparator.comparing(NamedQuantity::name, String.CASE_INSENSITIVE_ORDER))
                 .map(target -> {
                     var aggregated = itemIndex.get(target.name().toLowerCase(Locale.ROOT));
-                    var currentQuantity = aggregated == null ? 0 : aggregated.totalQuantity;
+                    var currentQuantity = aggregated == null
+                            ? 0
+                            : Math.max(aggregated.loggedQuantity + aggregated.manualAdjustmentQuantity, 0);
                     var owners = aggregated == null ? List.<String>of() : List.copyOf(aggregated.owners);
                     return new TargetProgressResponse(
                             target.name(),
@@ -121,6 +158,11 @@ public class GroupInventoryService {
                 })
                 .toList();
 
+        var manualAdjustments = groupState.manualAdjustments.values().stream()
+                .sorted(Comparator.comparing(NamedQuantity::name, String.CASE_INSENSITIVE_ORDER))
+                .map(adjustment -> new ManualAdjustmentResponse(adjustment.name(), adjustment.quantity()))
+                .toList();
+
         return new GroupOverviewResponse(
                 groupState.groupCode,
                 groupState.groupName,
@@ -128,7 +170,8 @@ public class GroupInventoryService {
                 members.size(),
                 members,
                 itemSummaries,
-                targetProgress
+                targetProgress,
+                manualAdjustments
         );
     }
 
@@ -229,6 +272,7 @@ public class GroupInventoryService {
         private final Instant createdAt;
         private final Map<String, MemberInventory> members = new LinkedHashMap<>();
         private Map<String, NamedQuantity> targetItems = Map.of();
+        private final Map<String, NamedQuantity> manualAdjustments = new LinkedHashMap<>();
 
         private GroupState(String groupCode, String groupName, Instant createdAt) {
             this.groupCode = groupCode;
@@ -246,7 +290,8 @@ public class GroupInventoryService {
     private static final class AggregatedItem {
         private final String displayName;
         private final LinkedHashSet<String> owners = new LinkedHashSet<>();
-        private int totalQuantity;
+        private int loggedQuantity;
+        private int manualAdjustmentQuantity;
 
         private AggregatedItem(String displayName) {
             this.displayName = displayName;

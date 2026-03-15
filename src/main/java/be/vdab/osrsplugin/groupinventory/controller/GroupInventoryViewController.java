@@ -1,5 +1,6 @@
 package be.vdab.osrsplugin.groupinventory.controller;
 
+import be.vdab.osrsplugin.groupinventory.dto.ManualAdjustmentRequest;
 import be.vdab.osrsplugin.groupinventory.service.GroupInventoryService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -29,6 +30,16 @@ public class GroupInventoryViewController {
     public String createGroup(@RequestParam("groupName") @NotBlank @Size(max = 64) String groupName) {
         var createdGroup = groupInventoryService.createGroup(groupName);
         return "redirect:" + createdGroup.overviewPath();
+    }
+
+    @PostMapping("/groups/{groupKey}/adjustments")
+    public String adjustItemQuantity(
+            @PathVariable @NotBlank @Size(max = 64) String groupKey,
+            @RequestParam("itemName") @NotBlank @Size(max = 80) String itemName,
+            @RequestParam("delta") int delta
+    ) {
+        groupInventoryService.adjustItemQuantity(groupKey, new ManualAdjustmentRequest(itemName, delta));
+        return "redirect:/groups/" + groupKey;
     }
 
     @GetMapping("/groups/{groupKey}")

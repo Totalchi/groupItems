@@ -2,6 +2,7 @@ package be.vdab.osrsplugin.groupinventory.controller;
 
 import be.vdab.osrsplugin.groupinventory.dto.GroupOverviewResponse;
 import be.vdab.osrsplugin.groupinventory.dto.InventoryUploadRequest;
+import be.vdab.osrsplugin.groupinventory.dto.ManualAdjustmentRequest;
 import be.vdab.osrsplugin.groupinventory.dto.TargetItemsRequest;
 import be.vdab.osrsplugin.groupinventory.service.GroupInventoryService;
 import jakarta.validation.Valid;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -47,6 +49,15 @@ public class GroupInventoryApiController {
             @Valid @RequestBody TargetItemsRequest request
     ) {
         return groupInventoryService.updateTargetItems(resolveGroupCode(groupCode, legacyGroupKey), request);
+    }
+
+    @PostMapping("/adjustments")
+    public GroupOverviewResponse adjustItems(
+            @RequestHeader(value = GROUP_CODE_HEADER, required = false) String groupCode,
+            @RequestHeader(value = GROUP_KEY_HEADER, required = false) String legacyGroupKey,
+            @Valid @RequestBody ManualAdjustmentRequest request
+    ) {
+        return groupInventoryService.adjustItemQuantity(resolveGroupCode(groupCode, legacyGroupKey), request);
     }
 
     @GetMapping

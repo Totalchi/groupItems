@@ -24,7 +24,27 @@
             <h2>Legenda</h2>
             <p>
                 <strong>Owners</strong> is hoeveel van de gesynchroniseerde spelers het item minstens 1 keer in de collection log heeft.
-                <strong>Total</strong> is het totaal aantal gelogde kopieën over alle leden heen.
+                <strong>Correctie</strong> is een handmatige groepsaanpassing bovenop het gelogde totaal.
+            </p>
+            <p>
+                Gebruik dit bijvoorbeeld als een item verloren is gegaan of als je een groepsaantal wilt corrigeren zonder de scans te wijzigen.
+            </p>
+        </article>
+
+        <article class="card">
+            <h2>Handmatige correctie</h2>
+            <form class="stack-form" method="post" th:action="@{/groups/{groupKey}/adjustments(groupKey=${overview.groupKey})}">
+                <div>
+                    <label for="itemName">Itemnaam</label>
+                    <input id="itemName" name="itemName" placeholder="Bandos tassets" required type="text">
+                </div>
+                <div class="button-row">
+                    <button name="delta" type="submit" value="-1">-1 item</button>
+                    <button class="button-secondary" name="delta" type="submit" value="1">+1 item</button>
+                </div>
+            </form>
+            <p class="muted-note">
+                Owners per speler blijven gebaseerd op collection-log scans. Alleen het groepsaantal wordt handmatig aangepast.
             </p>
         </article>
 
@@ -35,6 +55,8 @@
                 <tr>
                     <th>Item</th>
                     <th>Owners</th>
+                    <th>Gelogd</th>
+                    <th>Correctie</th>
                     <th>Total</th>
                     <th>Members</th>
                 </tr>
@@ -43,8 +65,51 @@
                 <tr th:each="item : ${overview.itemSummaries}">
                     <td th:text="${item.itemName}">Item</td>
                     <td th:text="${item.owners.size() + '/' + overview.memberCount}">0/0</td>
+                    <td th:text="${item.loggedQuantity}">0</td>
+                    <td>
+                        <span class="delta-pill"
+                              th:classappend="${item.manualAdjustmentQuantity > 0 ? ' delta-pill--positive' : (item.manualAdjustmentQuantity < 0 ? ' delta-pill--negative' : '')}"
+                              th:text="${item.manualAdjustmentQuantity > 0 ? '+' + item.manualAdjustmentQuantity : item.manualAdjustmentQuantity}">
+                            0
+                        </span>
+                    </td>
                     <td th:text="${item.totalQuantity}">0</td>
                     <td th:text="${item.owners.isEmpty() ? '-' : #strings.listJoin(item.owners, ', ')}">-</td>
+                </tr>
+                </tbody>
+            </table>
+        </article>
+    </section>
+
+    <section class="grid" th:if="${!overview.manualAdjustments.isEmpty()}">
+        <article class="card">
+            <h2>Actieve correcties</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Correctie</th>
+                    <th>Reset</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="adjustment : ${overview.manualAdjustments}">
+                    <td th:text="${adjustment.itemName}">Item</td>
+                    <td>
+                        <span class="delta-pill"
+                              th:classappend="${adjustment.adjustmentQuantity > 0 ? ' delta-pill--positive' : ' delta-pill--negative'}"
+                              th:text="${adjustment.adjustmentQuantity > 0 ? '+' + adjustment.adjustmentQuantity : adjustment.adjustmentQuantity}">
+                            0
+                        </span>
+                    </td>
+                    <td>
+                        <form method="post" th:action="@{/groups/{groupKey}/adjustments(groupKey=${overview.groupKey})}">
+                            <input name="itemName" th:value="${adjustment.itemName}" type="hidden">
+                            <button class="button-ghost" name="delta" th:value="${-adjustment.adjustmentQuantity}" type="submit">
+                                Reset
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 </tbody>
             </table>
@@ -58,7 +123,7 @@
                     <h2 th:text="${member.memberName}">Member</h2>
                     <p>
                         <span th:text="${member.distinctItemCount}">0</span> gelogde uniques,
-                        <span th:text="${member.totalItemCount}">0</span> totale gelogde kopieën.
+                        <span th:text="${member.totalItemCount}">0</span> totale gelogde kopieen.
                     </p>
                 </div>
                 <p class="timestamp" th:text="${member.updatedAt}">-</p>
