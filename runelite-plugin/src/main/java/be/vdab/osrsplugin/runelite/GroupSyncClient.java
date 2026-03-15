@@ -1,6 +1,7 @@
 package be.vdab.osrsplugin.runelite;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -29,9 +30,7 @@ final class GroupSyncClient
 	SyncModels.GroupOverviewResponse uploadBank(String baseUrl, String groupCode, String memberName, BankSnapshot snapshot)
 		throws IOException, InterruptedException
 	{
-		HttpRequest request = HttpRequest.newBuilder()
-			.uri(buildUri(baseUrl, "/api/group-inventory/members/" + encodePath(memberName)))
-			.timeout(TIMEOUT)
+		HttpRequest request = requestBuilder(baseUrl, "/api/group-inventory/members/" + encodePath(memberName))
 			.header("X-Group-Code", groupCode)
 			.header("Content-Type", "application/json")
 			.header("Accept", "application/json")
@@ -44,9 +43,7 @@ final class GroupSyncClient
 	SyncModels.GroupOverviewResponse fetchOverview(String baseUrl, String groupCode)
 		throws IOException, InterruptedException
 	{
-		HttpRequest request = HttpRequest.newBuilder()
-			.uri(buildUri(baseUrl, "/api/group-inventory"))
-			.timeout(TIMEOUT)
+		HttpRequest request = requestBuilder(baseUrl, "/api/group-inventory")
 			.header("X-Group-Code", groupCode)
 			.header("Accept", "application/json")
 			.GET()
@@ -62,17 +59,45 @@ final class GroupSyncClient
 		{
 			throw new IOException("Sync server returned " + response.statusCode() + formatResponseBody(response.body()));
 		}
-		return gson.fromJson(response.body(), SyncModels.GroupOverviewResponse.class);
+
+		try
+		{
+			SyncModels.GroupOverviewResponse overview = gson.fromJson(response.body(), SyncModels.GroupOverviewResponse.class);
+			if (overview == null)
+			{
+				throw new IOException("Sync server returned an empty response");
+			}
+			return overview;
+		}
+		catch (JsonParseException | IllegalStateException exception)
+		{
+			throw new IOException("Sync server returned invalid JSON" + formatResponseBody(response.body()), exception);
+		}
 	}
 
-	private URI buildUri(String baseUrl, String path)
+	private HttpRequest.Builder requestBuilder(String baseUrl, String path) throws IOException
+	{
+		return HttpRequest.newBuilder()
+			.uri(buildUri(baseUrl, path))
+			.timeout(TIMEOUT);
+	}
+
+	private URI buildUri(String baseUrl, String path) throws IOException
 	{
 		String normalizedBaseUrl = baseUrl == null ? "" : baseUrl.trim();
 		while (normalizedBaseUrl.endsWith("/"))
 		{
 			normalizedBaseUrl = normalizedBaseUrl.substring(0, normalizedBaseUrl.length() - 1);
 		}
-		return URI.create(normalizedBaseUrl + path);
+
+		try
+		{
+			return URI.create(normalizedBaseUrl + path);
+		}
+		catch (IllegalArgumentException exception)
+		{
+			throw new IOException("Sync server URL is invalid: " + normalizedBaseUrl, exception);
+		}
 	}
 
 	private String encodePath(String value)
