@@ -1,5 +1,6 @@
 package be.vdab.osrsplugin.groupinventory.service;
 
+import be.vdab.osrsplugin.groupinventory.dto.GroupBossGroupResponse;
 import be.vdab.osrsplugin.groupinventory.dto.GroupItemSummaryResponse;
 import be.vdab.osrsplugin.groupinventory.dto.GroupOverviewResponse;
 import be.vdab.osrsplugin.groupinventory.dto.InventoryUploadRequest;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -28,6 +30,117 @@ import java.util.Map;
 @Service
 public class GroupInventoryService {
     private static final char[] CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789".toCharArray();
+
+    /**
+     * Maps normalized item name → boss name for web UI grouping.
+     * Kept in sync with the plugin's BossUniqueCatalog.
+     */
+    private static final Map<String, String> BOSS_BY_ITEM = buildBossByItemMap();
+
+    private static Map<String, String> buildBossByItemMap() {
+        var map = new LinkedHashMap<String, String>();
+        // GWD
+        for (var item : List.of("Bandos chestplate","Bandos tassets","Bandos boots","Bandos hilt"))
+            map.put(normalize(item), "General Graardor");
+        for (var item : List.of("Armadyl helmet","Armadyl chestplate","Armadyl chainskirt","Armadyl hilt"))
+            map.put(normalize(item), "Kree'arra");
+        for (var item : List.of("Armadyl crossbow","Saradomin sword","Saradomin's light","Saradomin hilt"))
+            map.put(normalize(item), "Commander Zilyana");
+        for (var item : List.of("Zamorakian spear","Staff of the dead","Steam battlestaff","Zamorak hilt"))
+            map.put(normalize(item), "K'ril Tsutsaroth");
+        // Nex
+        for (var item : List.of("Torva full helm","Torva platebody","Torva platelegs","Nihil horn","Zaryte vambraces","Ancient hilt"))
+            map.put(normalize(item), "Nex");
+        // Corp
+        for (var item : List.of("Spectral sigil","Arcane sigil","Elysian sigil","Holy elixir"))
+            map.put(normalize(item), "Corporeal Beast");
+        // Zulrah / Vorkath
+        for (var item : List.of("Tanzanite fang","Magic fang","Serpentine visage","Uncut onyx"))
+            map.put(normalize(item), "Zulrah");
+        for (var item : List.of("Skeletal visage","Dragonbone necklace"))
+            map.put(normalize(item), "Vorkath");
+        // Alch Hydra
+        for (var item : List.of("Hydra's claw","Hydra leather","Hydra tail","Dragon knife","Dragon thrownaxe"))
+            map.put(normalize(item), "Alchemical Hydra");
+        // Demonic gorillas
+        map.put(normalize("Zenyte shard"), "Demonic gorillas");
+        // Cerberus
+        for (var item : List.of("Primordial crystal","Pegasian crystal","Eternal crystal","Smouldering stone"))
+            map.put(normalize(item), "Cerberus");
+        // Abyssal Sire
+        for (var item : List.of("Abyssal dagger","Bludgeon spine","Bludgeon claw","Bludgeon axon","Unsired"))
+            map.put(normalize(item), "Abyssal Sire");
+        // Grotesque Guardians
+        for (var item : List.of("Granite ring","Granite hammer","Black tourmaline core"))
+            map.put(normalize(item), "Grotesque Guardians");
+        // Phantom Muspah
+        for (var item : List.of("Venator shard","Ancient icon","Saturated heart"))
+            map.put(normalize(item), "Phantom Muspah");
+        // The Gauntlet
+        for (var item : List.of("Enhanced crystal weapon seed","Armour seed","Weapon seed"))
+            map.put(normalize(item), "The Gauntlet");
+        // The Nightmare
+        for (var item : List.of("Inquisitor's great helm","Inquisitor's hauberk","Inquisitor's plateskirt","Nightmare staff","Harmonised orb","Volatile orb","Eldritch orb"))
+            map.put(normalize(item), "The Nightmare");
+        // Dagannoth Kings
+        for (var item : List.of("Berserker ring","Seers ring","Warrior ring","Archers ring","Dragon axe","Mud battlestaff","Seercull"))
+            map.put(normalize(item), "Dagannoth Kings");
+        // Raids 1
+        for (var item : List.of("Twisted bow","Elder maul","Kodai insignia","Dragon hunter crossbow","Twisted buckler","Dinh's bulwark","Ancestral hat","Ancestral robe top","Ancestral robe bottom","Dragon claws","Dexterous prayer scroll","Arcane prayer scroll"))
+            map.put(normalize(item), "Chambers of Xeric");
+        // Raids 2
+        for (var item : List.of("Avernic defender hilt","Ghrazi rapier","Scythe of vitur","Sanguinesti staff","Justiciar faceguard","Justiciar chestguard","Justiciar legguards","Lil' Zik"))
+            map.put(normalize(item), "Theatre of Blood");
+        // Raids 3
+        for (var item : List.of("Tumeken's shadow","Elidinis' ward","Masori mask","Masori body","Masori chaps","Osmumten's fang","Lightbearer","Thread of elidinis","Breach of the scarab"))
+            map.put(normalize(item), "Tombs of Amascut");
+        // DT2
+        for (var item : List.of("Magus ring","Virtus mask","Virtus robe top","Virtus robe bottom"))
+            map.put(normalize(item), "Duke Sucellus");
+        for (var item : List.of("Venator ring","Leviathan's lure"))
+            map.put(normalize(item), "The Leviathan");
+        for (var item : List.of("Bellator ring","Siren's staff"))
+            map.put(normalize(item), "The Whisperer");
+        for (var item : List.of("Ultor ring","Executioner's axe head","Chromium ingot"))
+            map.put(normalize(item), "Vardorvis");
+        // Barrows
+        for (var item : List.of("Ahrim's hood","Ahrim's staff","Ahrim's robetop","Ahrim's robe skirt","Dharok's helm","Dharok's platebody","Dharok's platelegs","Dharok's greataxe","Guthan's helm","Guthan's platebody","Guthan's chainskirt","Guthan's warspear","Karil's coif","Karil's leathertop","Karil's leatherskirt","Karil's crossbow","Torag's helm","Torag's platebody","Torag's platelegs","Torag's hammers","Verac's helm","Verac's brassard","Verac's plateskirt","Verac's flail"))
+            map.put(normalize(item), "Barrows Chests");
+        // Other bosses
+        for (var item : List.of("Sarachnis cudgel","Jar of eyes","Giant egg sac"))
+            map.put(normalize(item), "Sarachnis");
+        for (var item : List.of("Dragon chainbody","KQ head","Jar of sand","Kalphite princess"))
+            map.put(normalize(item), "Kalphite Queen");
+        for (var item : List.of("Draconic visage","KBD heads","Prince black dragon"))
+            map.put(normalize(item), "King Black Dragon");
+        for (var item : List.of("Mole skin","Mole claw"))
+            map.put(normalize(item), "Giant Mole");
+        for (var item : List.of("Skotos","Dark claw","Jar of darkness"))
+            map.put(normalize(item), "Skotizo");
+        for (var item : List.of("Dragon pickaxe","Pet chaos elemental"))
+            map.put(normalize(item), "Chaos Elemental");
+        for (var item : List.of("Kraken tentacle","Jar of dirt","Pet kraken"))
+            map.put(normalize(item), "Kraken");
+        for (var item : List.of("Odium shard 3","Malediction shard 3","Scorpia's offspring"))
+            map.put(normalize(item), "Scorpia");
+        for (var item : List.of("Tyrannical ring","Callisto cub"))
+            map.put(normalize(item), "Callisto");
+        for (var item : List.of("Treasonous ring","Venenatis spiderling"))
+            map.put(normalize(item), "Venenatis");
+        for (var item : List.of("Ring of the gods","Vet'ion jr."))
+            map.put(normalize(item), "Vet'ion");
+        for (var item : List.of("Spirit angler headband","Spirit angler top","Spirit angler waders","Spirit angler boots","Tome of water","Tiny tempor"))
+            map.put(normalize(item), "Tempoross");
+        for (var item : List.of("Crystal tool seed","Zalcano shard"))
+            map.put(normalize(item), "Zalcano");
+        for (var item : List.of("Sunfire fanatic helm","Sunfire fanatic cuirass","Sunfire fanatic chausses","Echo crystal","Tonalztics of ralos","Dizana's quiver","Smol heredit"))
+            map.put(normalize(item), "Sol Heredit");
+        return Map.copyOf(map);
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    }
 
     private final Map<String, GroupState> groups = new LinkedHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
@@ -66,6 +179,53 @@ public class GroupInventoryService {
             );
             persistGroups();
             return buildOverview(groupState);
+        }
+    }
+
+    public GroupOverviewResponse addTargetItem(String groupCode, String itemName, int quantity) {
+        synchronized (groups) {
+            if (quantity <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target quantity must be greater than zero");
+            }
+            var groupState = findGroup(groupCode);
+            var sanitizedItemName = sanitizeItemName(itemName);
+            var itemKey = sanitizedItemName.toLowerCase(Locale.ROOT);
+            var mutableTargets = new LinkedHashMap<>(groupState.targetItems);
+            mutableTargets.put(itemKey, new NamedQuantity(sanitizedItemName, quantity));
+            groupState.targetItems = mutableTargets;
+            persistGroups();
+            return buildOverview(groupState);
+        }
+    }
+
+    public GroupOverviewResponse removeTargetItem(String groupCode, String itemName) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
+            var sanitizedItemName = sanitizeItemName(itemName);
+            var itemKey = sanitizedItemName.toLowerCase(Locale.ROOT);
+            var mutableTargets = new LinkedHashMap<>(groupState.targetItems);
+            mutableTargets.remove(itemKey);
+            groupState.targetItems = mutableTargets;
+            persistGroups();
+            return buildOverview(groupState);
+        }
+    }
+
+    public GroupOverviewResponse renameGroup(String groupCode, String newGroupName) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
+            var sanitizedGroupName = sanitizeGroupName(newGroupName);
+            var updated = new GroupState(
+                    groupState.groupCode,
+                    sanitizedGroupName,
+                    groupState.createdAt,
+                    groupState.members,
+                    groupState.targetItems,
+                    groupState.manualAdjustments
+            );
+            groups.put(groupState.groupCode, updated);
+            persistGroups();
+            return buildOverview(updated);
         }
     }
 
@@ -108,6 +268,78 @@ public class GroupInventoryService {
     public GroupOverviewResponse getOverview(String groupCode) {
         synchronized (groups) {
             var groupState = findGroup(groupCode);
+            return buildOverview(groupState);
+        }
+    }
+
+    public GroupOverviewResponse createMember(String groupCode, String memberName) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
+            var sanitizedMemberName = sanitizeMemberName(memberName);
+            var memberKey = sanitizedMemberName.toLowerCase(Locale.ROOT);
+            groupState.members.putIfAbsent(
+                    memberKey,
+                    new MemberInventory(sanitizedMemberName, Instant.now(), new LinkedHashMap<>())
+            );
+            persistGroups();
+            return buildOverview(groupState);
+        }
+    }
+
+    public GroupOverviewResponse addMemberItem(String groupCode, String memberName, String itemName, int quantity) {
+        synchronized (groups) {
+            if (quantity == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity cannot be zero");
+            }
+            var groupState = findGroup(groupCode);
+            var sanitizedMemberName = sanitizeMemberName(memberName);
+            var memberKey = sanitizedMemberName.toLowerCase(Locale.ROOT);
+            var sanitizedItemName = sanitizeItemName(itemName);
+            var itemKey = sanitizedItemName.toLowerCase(Locale.ROOT);
+
+            var existing = groupState.members.get(memberKey);
+            var currentItems = existing == null
+                    ? new LinkedHashMap<String, NamedQuantity>()
+                    : new LinkedHashMap<>(existing.items());
+
+            var existingItem = currentItems.get(itemKey);
+            var newQuantity = safeAdd(
+                    existingItem == null ? 0 : existingItem.quantity(),
+                    quantity,
+                    "Quantity is too large for " + sanitizedItemName
+            );
+
+            if (newQuantity <= 0) {
+                currentItems.remove(itemKey);
+            } else {
+                currentItems.put(itemKey, new NamedQuantity(sanitizedItemName, newQuantity));
+            }
+
+            groupState.members.put(memberKey, new MemberInventory(sanitizedMemberName, Instant.now(), currentItems));
+            persistGroups();
+            return buildOverview(groupState);
+        }
+    }
+
+    public void deleteGroup(String groupCode) {
+        synchronized (groups) {
+            var normalizedCode = normalizeGroupCode(groupCode);
+            if (groups.remove(normalizedCode) == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No group found for code " + normalizedCode);
+            }
+            persistGroups();
+        }
+    }
+
+    public GroupOverviewResponse removeMember(String groupCode, String memberName) {
+        synchronized (groups) {
+            var groupState = findGroup(groupCode);
+            var sanitizedMemberName = sanitizeMemberName(memberName);
+            var memberKey = sanitizedMemberName.toLowerCase(Locale.ROOT);
+            if (groupState.members.remove(memberKey) == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No member found with name " + sanitizedMemberName);
+            }
+            persistGroups();
             return buildOverview(groupState);
         }
     }
@@ -200,6 +432,8 @@ public class GroupInventoryService {
                 .map(adjustment -> new ManualAdjustmentResponse(adjustment.name(), adjustment.quantity()))
                 .toList();
 
+        var bossGroups = buildBossGroups(itemSummaries);
+
         return new GroupOverviewResponse(
                 groupState.groupCode,
                 groupState.groupName,
@@ -208,8 +442,20 @@ public class GroupInventoryService {
                 members,
                 itemSummaries,
                 targetProgress,
-                manualAdjustments
+                manualAdjustments,
+                bossGroups
         );
+    }
+
+    private List<GroupBossGroupResponse> buildBossGroups(List<GroupItemSummaryResponse> itemSummaries) {
+        var grouped = new LinkedHashMap<String, List<GroupItemSummaryResponse>>();
+        for (var item : itemSummaries) {
+            var boss = BOSS_BY_ITEM.getOrDefault(normalize(item.itemName()), "Other");
+            grouped.computeIfAbsent(boss, ignored -> new ArrayList<>()).add(item);
+        }
+        return grouped.entrySet().stream()
+                .map(entry -> new GroupBossGroupResponse(entry.getKey(), List.copyOf(entry.getValue())))
+                .toList();
     }
 
     private MemberInventoryResponse toMemberResponse(MemberInventory memberInventory) {

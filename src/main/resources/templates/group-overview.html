@@ -8,15 +8,36 @@
 </head>
 <body>
 <main class="shell">
+    <nav style="margin-bottom:1rem;">
+        <a href="/" style="color:var(--accent); font-weight:700; text-decoration:none;">← Terug naar home</a>
+    </nav>
+
     <section class="hero">
         <p class="eyebrow">Private Group</p>
         <h1 th:text="${overview.groupName}">Group name</h1>
         <p class="lead">
-            Group code: <code th:text="${overview.groupKey}">grp-ab12-cd34</code><br>
+            Group code: <code th:text="${overview.groupKey}">grp-ab12-cd34</code>
+            <button type="button" class="button-ghost button-sm"
+                    th:data-code="${overview.groupKey}"
+                    onclick="navigator.clipboard.writeText(this.dataset.code); this.textContent='✓ Gekopieerd'; setTimeout(()=>this.textContent='Kopieer',1500)">Kopieer</button><br>
             <span th:text="${overview.memberCount}">0</span> spelers gesynchroniseerd.
             Laatst opgebouwd op <span th:text="${overview.generatedAt}">-</span>.
             Dit overzicht toont gelogde boss uniques, niet live bankinhoud.
         </p>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem; align-items:center;">
+            <form method="post"
+                  th:action="@{/groups/{groupKey}/rename(groupKey=${overview.groupKey})}"
+                  style="display:flex; gap:0.5rem; align-items:center;">
+                <input name="groupName" th:placeholder="${overview.groupName}" type="text" maxlength="64"
+                       required style="width:auto; padding:0.5rem 0.75rem; border-radius:10px;">
+                <button class="button-ghost button-sm" type="submit">Hernoemen</button>
+            </form>
+            <form method="post"
+                  th:action="@{/groups/{groupKey}/delete(groupKey=${overview.groupKey})}"
+                  onsubmit="return confirm('Groep permanent verwijderen?');">
+                <button class="button-ghost button-danger button-sm" type="submit">Groep verwijderen</button>
+            </form>
+        </div>
     </section>
 
     <section class="grid">
@@ -47,7 +68,163 @@
                 Owners per speler blijven gebaseerd op collection-log scans. Alleen het groepsaantal wordt handmatig aangepast.
             </p>
         </article>
+    </section>
 
+    <!-- Member & item management -->
+    <datalist id="memberNames">
+        <option th:each="member : ${overview.members}" th:value="${member.memberName}"></option>
+    </datalist>
+    <section class="grid">
+        <article class="card">
+            <h2>Member toevoegen</h2>
+            <form class="stack-form" method="post"
+                  th:action="@{/groups/{groupKey}/members(groupKey=${overview.groupKey})}">
+                <div>
+                    <label for="newMemberName">Naam</label>
+                    <input id="newMemberName" name="memberName" placeholder="PlayerName" required type="text" maxlength="32">
+                </div>
+                <button type="submit">Member toevoegen</button>
+            </form>
+        </article>
+
+        <article class="card">
+            <h2>Item toevoegen aan member</h2>
+            <form class="stack-form" method="post"
+                  th:action="@{/groups/{groupKey}/members/items(groupKey=${overview.groupKey})}">
+                <div>
+                    <label for="targetMember">Member</label>
+                    <input id="targetMember" name="memberName" list="memberNames"
+                           placeholder="PlayerName" required type="text" maxlength="32">
+                </div>
+                <div>
+                    <label for="memberItemName">Itemnaam</label>
+                    <input id="memberItemName" name="itemName"
+                           placeholder="Bandos chestplate" required type="text" maxlength="80">
+                </div>
+                <div class="button-row">
+                    <button name="quantity" type="submit" value="-1">-1 item</button>
+                    <button class="button-secondary" name="quantity" type="submit" value="1">+1 item</button>
+                </div>
+            </form>
+            <p class="muted-note">Bestaande members worden aangevuld; nieuwe members worden automatisch aangemaakt.</p>
+        </article>
+    </section>
+
+    <!-- Target item management -->
+    <section class="grid">
+        <article class="card">
+            <h2>Target item instellen</h2>
+            <form class="stack-form" method="post"
+                  th:action="@{/groups/{groupKey}/targets(groupKey=${overview.groupKey})}">
+                <div>
+                    <label for="targetItemName">Itemnaam</label>
+                    <input id="targetItemName" name="itemName" placeholder="Bandos chestplate" required type="text" maxlength="80">
+                </div>
+                <div>
+                    <label for="targetQuantity">Gewenst aantal</label>
+                    <input id="targetQuantity" name="quantity" type="number" min="1" value="1" required>
+                </div>
+                <button type="submit">Instellen</button>
+            </form>
+            <p class="muted-note">Overschrijft het doel voor dit item als het al bestaat.</p>
+        </article>
+
+        <article class="card" th:if="${!overview.targetProgress.isEmpty()}">
+            <h2>Actieve targets</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Doel</th>
+                    <th>Verwijder</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="target : ${overview.targetProgress}">
+                    <td th:text="${target.itemName}">-</td>
+                    <td th:text="${target.targetQuantity}">0</td>
+                    <td>
+                        <form method="post"
+                              th:action="@{/groups/{groupKey}/targets/remove(groupKey=${overview.groupKey})}">
+                            <input name="itemName" th:value="${target.itemName}" type="hidden">
+                            <button class="button-ghost button-sm" type="submit">Verwijder</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </article>
+    </section>
+
+    <!-- Target progress -->
+    <section class="grid" th:if="${!overview.targetProgress.isEmpty()}">
+        <article class="card card--wide">
+            <h2>Target progress</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Huidig</th>
+                    <th>Doel</th>
+                    <th>Resterend</th>
+                    <th>Owners</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="target : ${overview.targetProgress}"
+                    th:classappend="${target.missingQuantity == 0 ? 'row--complete' : (target.currentQuantity > 0 ? 'row--partial' : 'row--missing')}">
+                    <td th:text="${target.itemName}">-</td>
+                    <td th:text="${target.currentQuantity}">0</td>
+                    <td th:text="${target.targetQuantity}">0</td>
+                    <td th:text="${target.missingQuantity}">0</td>
+                    <td th:text="${target.owners.isEmpty() ? '-' : #strings.listJoin(target.owners, ', ')}">-</td>
+                </tr>
+                </tbody>
+            </table>
+        </article>
+    </section>
+
+    <!-- Boss-grouped uniques -->
+    <section class="grid" th:if="${!overview.bossGroups.isEmpty()}">
+        <article class="card card--wide">
+            <h2>Groepstotalen per boss</h2>
+            <div th:each="bossGroup : ${overview.bossGroups}">
+                <h3 th:text="${bossGroup.bossName}" style="margin-top:1.2rem; margin-bottom:0.4rem;">Boss</h3>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Owners</th>
+                        <th>Gelogd</th>
+                        <th>Correctie</th>
+                        <th>Totaal</th>
+                        <th>Members</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item : ${bossGroup.items}"
+                        th:classappend="${item.owners.size() >= overview.memberCount and overview.memberCount > 0 ? 'row--complete' : (item.owners.size() > 0 ? 'row--partial' : 'row--missing')}">
+                        <td th:text="${item.itemName}">Item</td>
+                        <td th:text="${item.owners.size() + '/' + overview.memberCount}">0/0</td>
+                        <td th:text="${item.loggedQuantity}">0</td>
+                        <td>
+                            <span class="delta-pill"
+                                  th:classappend="${item.manualAdjustmentQuantity > 0 ? ' delta-pill--positive' : (item.manualAdjustmentQuantity < 0 ? ' delta-pill--negative' : '')}"
+                                  th:text="${item.manualAdjustmentQuantity > 0 ? '+' + item.manualAdjustmentQuantity : item.manualAdjustmentQuantity}">
+                                0
+                            </span>
+                        </td>
+                        <td th:text="${item.totalQuantity}">0</td>
+                        <td th:text="${item.owners.isEmpty() ? '-' : #strings.listJoin(item.owners, ', ')}">-</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    </section>
+
+    <!-- Fallback flat table when no boss groups (items not in catalog) -->
+    <section class="grid" th:if="${overview.bossGroups.isEmpty() and !overview.itemSummaries.isEmpty()}">
         <article class="card">
             <h2>Groepstotalen</h2>
             <table>
@@ -81,6 +258,7 @@
         </article>
     </section>
 
+    <!-- Active manual adjustments -->
     <section class="grid" th:if="${!overview.manualAdjustments.isEmpty()}">
         <article class="card">
             <h2>Actieve correcties</h2>
@@ -116,6 +294,7 @@
         </article>
     </section>
 
+    <!-- Members -->
     <section class="member-grid">
         <article class="card" th:each="member : ${overview.members}">
             <div class="member-header">
@@ -126,7 +305,14 @@
                         <span th:text="${member.totalItemCount}">0</span> totale gelogde kopieen.
                     </p>
                 </div>
-                <p class="timestamp" th:text="${member.updatedAt}">-</p>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.4rem;">
+                    <p class="timestamp" th:text="${member.updatedAt}">-</p>
+                    <form method="post"
+                          th:action="@{/groups/{groupKey}/members/{memberName}/remove(groupKey=${overview.groupKey},memberName=${member.memberName})}"
+                          onsubmit="return confirm('Member verwijderen uit de groep?');">
+                        <button class="button-ghost button-danger" type="submit">Verwijder</button>
+                    </form>
+                </div>
             </div>
             <table>
                 <thead>

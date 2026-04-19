@@ -50,4 +50,67 @@ public class GroupInventoryViewController {
         model.addAttribute("overview", groupInventoryService.getOverview(groupKey));
         return "group-overview";
     }
+
+    @PostMapping("/groups/{groupKey}/delete")
+    public String deleteGroup(@PathVariable @NotBlank @Size(max = 64) String groupKey) {
+        groupInventoryService.deleteGroup(groupKey);
+        return "redirect:/";
+    }
+
+    @PostMapping("/groups/{groupKey}/rename")
+    public String renameGroup(
+            @PathVariable @NotBlank @Size(max = 64) String groupKey,
+            @RequestParam("groupName") @NotBlank @Size(max = 64) String groupName
+    ) {
+        groupInventoryService.renameGroup(groupKey, groupName);
+        return "redirect:/groups/" + groupKey;
+    }
+
+    @PostMapping("/groups/{groupKey}/targets")
+    public String addTarget(
+            @PathVariable @NotBlank @Size(max = 64) String groupKey,
+            @RequestParam("itemName") @NotBlank @Size(max = 80) String itemName,
+            @RequestParam("quantity") int quantity
+    ) {
+        groupInventoryService.addTargetItem(groupKey, itemName, quantity);
+        return "redirect:/groups/" + groupKey;
+    }
+
+    @PostMapping("/groups/{groupKey}/targets/remove")
+    public String removeTarget(
+            @PathVariable @NotBlank @Size(max = 64) String groupKey,
+            @RequestParam("itemName") @NotBlank @Size(max = 80) String itemName
+    ) {
+        groupInventoryService.removeTargetItem(groupKey, itemName);
+        return "redirect:/groups/" + groupKey;
+    }
+
+    @PostMapping("/groups/{groupKey}/members")
+    public String createMember(
+            @PathVariable @NotBlank @Size(max = 64) String groupKey,
+            @RequestParam("memberName") @NotBlank @Size(max = 32) String memberName
+    ) {
+        groupInventoryService.createMember(groupKey, memberName);
+        return "redirect:/groups/" + groupKey;
+    }
+
+    @PostMapping("/groups/{groupKey}/members/items")
+    public String addMemberItem(
+            @PathVariable @NotBlank @Size(max = 64) String groupKey,
+            @RequestParam("memberName") @NotBlank @Size(max = 32) String memberName,
+            @RequestParam("itemName") @NotBlank @Size(max = 80) String itemName,
+            @RequestParam("quantity") int quantity
+    ) {
+        groupInventoryService.addMemberItem(groupKey, memberName, itemName, quantity);
+        return "redirect:/groups/" + groupKey;
+    }
+
+    @PostMapping("/groups/{groupKey}/members/{memberName}/remove")
+    public String removeMember(
+            @PathVariable @NotBlank @Size(max = 64) String groupKey,
+            @PathVariable @NotBlank @Size(max = 32) String memberName
+    ) {
+        groupInventoryService.removeMember(groupKey, memberName);
+        return "redirect:/groups/" + groupKey;
+    }
 }

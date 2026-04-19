@@ -54,6 +54,7 @@ final class SyncModels
 		int memberCount;
 		List<MemberInventoryResponse> members = Collections.emptyList();
 		List<GroupItemSummaryResponse> itemSummaries = Collections.emptyList();
+		List<TargetProgressResponse> targetProgress = Collections.emptyList();
 	}
 
 	static final class MemberInventoryResponse
@@ -67,5 +68,14 @@ final class SyncModels
 		int totalQuantity;
 		List<String> owners = Collections.emptyList();
 		List<String> missingMembers = Collections.emptyList();
+	}
+
+	static final class TargetProgressResponse
+	{
+		String itemName;
+		int targetQuantity;
+		int currentQuantity;
+		int missingQuantity;
+		List<String> owners = Collections.emptyList();
 	}
 }

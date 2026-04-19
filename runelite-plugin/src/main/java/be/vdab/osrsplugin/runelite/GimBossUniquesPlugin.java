@@ -66,6 +66,7 @@ public class GimBossUniquesPlugin extends Plugin
 	private NavigationButton navigationButton;
 	private GimBossUniquesPanel panel;
 	private ScheduledFuture<?> pendingUploadTask;
+	private ScheduledFuture<?> periodicRefreshTask;
 	private BankSnapshot pendingSnapshot;
 	private String pendingMemberName;
 	private boolean pendingForceUpload;
@@ -96,6 +97,8 @@ public class GimBossUniquesPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		cancelPeriodicRefresh();
+
 		synchronized (uploadLock)
 		{
 			if (pendingUploadTask != null)
@@ -103,12 +106,12 @@ public class GimBossUniquesPlugin extends Plugin
 				pendingUploadTask.cancel(false);
 				pendingUploadTask = null;
 			}
+			pendingSnapshot = null;
+			pendingMemberName = null;
+			pendingForceUpload = false;
 		}
 
 		lastSuccessfulFingerprint = null;
-		pendingSnapshot = null;
-		pendingMemberName = null;
-		pendingForceUpload = false;
 		lastSyncAt = null;
 		lastObservedCollectionLogSignature = null;
 
@@ -125,7 +128,14 @@ public class GimBossUniquesPlugin extends Plugin
 	{
 		if (event.getGameState() == GameState.LOGGED_IN && isConfigured())
 		{
+			schedulePeriodicRefresh();
 			refreshOverview();
+		}
+		else if (event.getGameState() == GameState.LOGIN_SCREEN
+			|| event.getGameState() == GameState.HOPPING
+			|| event.getGameState() == GameState.CONNECTION_LOST)
+		{
+			cancelPeriodicRefresh();
 		}
 	}
 
@@ -170,10 +180,12 @@ public class GimBossUniquesPlugin extends Plugin
 
 		if (!isConfigured())
 		{
+			cancelPeriodicRefresh();
 			renderPlaceholder("Configure a sync server URL and group code, then open boss pages in your collection log.");
 			return;
 		}
 
+		schedulePeriodicRefresh();
 		refreshOverview();
 	}
 
@@ -373,6 +385,31 @@ public class GimBossUniquesPlugin extends Plugin
 	{
 		String message = exception.getMessage();
 		return message == null || message.isBlank() ? exception.getClass().getSimpleName() : message;
+	}
+
+	private void schedulePeriodicRefresh()
+	{
+		cancelPeriodicRefresh();
+		int intervalSeconds = config.autoRefreshIntervalSeconds();
+		if (intervalSeconds <= 0 || !isConfigured())
+		{
+			return;
+		}
+		periodicRefreshTask = executor.scheduleAtFixedRate(
+			this::refreshOverview,
+			intervalSeconds,
+			intervalSeconds,
+			TimeUnit.SECONDS
+		);
+	}
+
+	private void cancelPeriodicRefresh()
+	{
+		if (periodicRefreshTask != null)
+		{
+			periodicRefreshTask.cancel(false);
+			periodicRefreshTask = null;
+		}
 	}
 
 	private BufferedImage createNavigationIcon()

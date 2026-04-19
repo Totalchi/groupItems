@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -25,7 +26,8 @@ class GroupInventoryServiceTests {
     void setUp() {
         groupInventoryService = new GroupInventoryService(
                 new GroupInventoryPersistence(
-                        tempDir.resolve("group-state.bin").toString()
+                        tempDir.resolve("group-state.json").toString(),
+                        new ObjectMapper()
                 )
         );
     }
@@ -139,7 +141,8 @@ class GroupInventoryServiceTests {
 
         var reloadedService = new GroupInventoryService(
                 new GroupInventoryPersistence(
-                        tempDir.resolve("group-state.bin").toString()
+                        tempDir.resolve("group-state.json").toString(),
+                        new ObjectMapper()
                 )
         );
 
@@ -149,6 +152,74 @@ class GroupInventoryServiceTests {
         assertThat(overview.manualAdjustments()).extracting(adjustment -> adjustment.adjustmentQuantity())
                 .containsExactly(-1);
         assertThat(overview.itemSummaries()).extracting(item -> item.totalQuantity()).containsExactly(1);
+    }
+
+    @Test
+    void createMemberAddsEmptyMemberToGroup() {
+        var createdGroup = groupInventoryService.createGroup("Team Epsilon");
+        groupInventoryService.createMember(createdGroup.groupCode(), "Alice");
+
+        var overview = groupInventoryService.getOverview(createdGroup.groupCode());
+        assertThat(overview.memberCount()).isEqualTo(1);
+        assertThat(overview.members()).extracting(m -> m.memberName()).containsExactly("Alice");
+        assertThat(overview.members().get(0).items()).isEmpty();
+    }
+
+    @Test
+    void createMemberIsIdempotentForExistingMember() {
+        var createdGroup = groupInventoryService.createGroup("Team Zeta");
+        groupInventoryService.updateMemberInventory(createdGroup.groupCode(), "Alice", new InventoryUploadRequest(List.of(
+                new ItemQuantityRequest("Bandos chestplate", 1)
+        )));
+        groupInventoryService.createMember(createdGroup.groupCode(), "Alice");
+
+        var overview = groupInventoryService.getOverview(createdGroup.groupCode());
+        assertThat(overview.memberCount()).isEqualTo(1);
+        assertThat(overview.members().get(0).items()).hasSize(1);
+    }
+
+    @Test
+    void addMemberItemCreatesNewMemberWhenNotExists() {
+        var createdGroup = groupInventoryService.createGroup("Team Eta");
+        groupInventoryService.addMemberItem(createdGroup.groupCode(), "Alice", "Bandos tassets", 1);
+
+        var overview = groupInventoryService.getOverview(createdGroup.groupCode());
+        assertThat(overview.memberCount()).isEqualTo(1);
+        assertThat(overview.members().get(0).memberName()).isEqualTo("Alice");
+        var tassets = overview.members().get(0).items().get(0);
+        assertThat(tassets.itemName()).isEqualTo("Bandos tassets");
+        assertThat(tassets.quantity()).isEqualTo(1);
+    }
+
+    @Test
+    void addMemberItemIncrementsExistingItem() {
+        var createdGroup = groupInventoryService.createGroup("Team Theta");
+        groupInventoryService.updateMemberInventory(createdGroup.groupCode(), "Alice", new InventoryUploadRequest(List.of(
+                new ItemQuantityRequest("Bandos tassets", 3)
+        )));
+        groupInventoryService.addMemberItem(createdGroup.groupCode(), "Alice", "Bandos tassets", 2);
+
+        var tassets = groupInventoryService.getOverview(createdGroup.groupCode())
+                .members().get(0).items().get(0);
+        assertThat(tassets.quantity()).isEqualTo(5);
+    }
+
+    @Test
+    void addMemberItemWithNegativeQuantityRemovesItemWhenReachingZero() {
+        var createdGroup = groupInventoryService.createGroup("Team Iota");
+        groupInventoryService.addMemberItem(createdGroup.groupCode(), "Alice", "Bandos tassets", 2);
+        groupInventoryService.addMemberItem(createdGroup.groupCode(), "Alice", "Bandos tassets", -2);
+
+        var overview = groupInventoryService.getOverview(createdGroup.groupCode());
+        assertThat(overview.members().get(0).items()).isEmpty();
+    }
+
+    @Test
+    void addMemberItemRejectsZeroQuantity() {
+        var createdGroup = groupInventoryService.createGroup("Team Kappa");
+        assertThatThrownBy(() -> groupInventoryService.addMemberItem(
+                createdGroup.groupCode(), "Alice", "Bandos tassets", 0
+        )).isInstanceOf(ResponseStatusException.class);
     }
 
     @Test

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="nl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fout</title>
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+<main class="shell shell--narrow">
+    <nav style="margin-bottom:1rem;">
+        <a href="/" style="color:var(--accent); font-weight:700; text-decoration:none;">← Terug naar home</a>
+    </nav>
+    <section class="hero">
+        <p class="eyebrow">Fout <span th:text="${status}">-</span></p>
+        <h1 th:text="${status == 404 ? 'Groep niet gevonden' : 'Er ging iets mis'}">Fout</h1>
+        <p class="lead" th:text="${status == 404 ? 'De groepscode bestaat niet of is verkeerd gespeld.' : message}">-</p>
+    </section>
+    <section class="card">
+        <p>Controleer de group code en probeer opnieuw, of maak een nieuwe groep aan op de homepagina.</p>
+        <div style="margin-top:1rem;">
+            <a href="/"><button type="button">Ga naar home</button></a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -31,6 +31,15 @@
     </section>
 
     <section class="card">
+        <h2>Bestaande groep opzoeken</h2>
+        <form class="stack-form" onsubmit="window.location='/groups/'+document.getElementById('lookupCode').value.trim(); return false;">
+            <label for="lookupCode">Group code</label>
+            <input id="lookupCode" name="code" type="text" placeholder="grp-ab12-cd34" required>
+            <button type="submit">Ga naar groep</button>
+        </form>
+    </section>
+
+    <section class="card">
         <h2>Gebruik</h2>
         <ol class="steps">
             <li>Start deze Spring Boot server op poort <code>8080</code>.</li>

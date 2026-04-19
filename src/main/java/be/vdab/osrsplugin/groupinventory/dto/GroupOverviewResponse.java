@@ -11,6 +11,7 @@ public record GroupOverviewResponse(
         List<MemberInventoryResponse> members,
         List<GroupItemSummaryResponse> itemSummaries,
         List<TargetProgressResponse> targetProgress,
-        List<ManualAdjustmentResponse> manualAdjustments
+        List<ManualAdjustmentResponse> manualAdjustments,
+        List<GroupBossGroupResponse> bossGroups
 ) {
 }

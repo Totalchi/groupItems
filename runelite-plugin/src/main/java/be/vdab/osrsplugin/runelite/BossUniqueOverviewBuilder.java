@@ -60,7 +60,23 @@ final class BossUniqueOverviewBuilder
 			}
 		}
 
-		return new GroupOverviewViewModel(overviewResponse.groupKey, overviewResponse.groupName, overviewResponse.memberCount, members, sections);
+		List<SyncModels.TargetProgressResponse> targetProgress = new ArrayList<>();
+		for (SyncModels.TargetProgressResponse target : safeList(overviewResponse.targetProgress))
+		{
+			if (target != null && target.itemName != null)
+			{
+				targetProgress.add(target);
+			}
+		}
+
+		return new GroupOverviewViewModel(
+			overviewResponse.groupKey,
+			overviewResponse.groupName,
+			overviewResponse.memberCount,
+			members,
+			sections,
+			Collections.unmodifiableList(targetProgress)
+		);
 	}
 
 	private <T> List<T> safeList(List<T> values)
@@ -80,14 +96,23 @@ final class BossUniqueOverviewBuilder
 		private final int memberCount;
 		private final List<String> members;
 		private final List<BossSection> sections;
+		private final List<SyncModels.TargetProgressResponse> targetProgress;
 
-		private GroupOverviewViewModel(String groupCode, String groupName, int memberCount, List<String> members, List<BossSection> sections)
+		private GroupOverviewViewModel(
+			String groupCode,
+			String groupName,
+			int memberCount,
+			List<String> members,
+			List<BossSection> sections,
+			List<SyncModels.TargetProgressResponse> targetProgress
+		)
 		{
 			this.groupCode = groupCode;
 			this.groupName = groupName;
 			this.memberCount = memberCount;
 			this.members = Collections.unmodifiableList(new ArrayList<>(members));
 			this.sections = Collections.unmodifiableList(new ArrayList<>(sections));
+			this.targetProgress = targetProgress;
 		}
 
 		String getGroupCode()
@@ -122,6 +147,11 @@ final class BossUniqueOverviewBuilder
 		List<BossSection> getSections()
 		{
 			return sections;
+		}
+
+		List<SyncModels.TargetProgressResponse> getTargetProgress()
+		{
+			return targetProgress;
 		}
 	}
 

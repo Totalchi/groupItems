@@ -3,6 +3,7 @@ package be.vdab.osrsplugin.runelite;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -18,6 +19,13 @@ import net.runelite.client.ui.PluginPanel;
 
 class GimBossUniquesPanel extends PluginPanel
 {
+	private static final String COLOR_COMPLETE = "#22cc44";
+	private static final String COLOR_PARTIAL  = "#f0c040";
+	private static final String COLOR_MISSING  = "#cc4444";
+	private static final String COLOR_TARGET_DONE = "#22cc44";
+	private static final String COLOR_TARGET_PROGRESS = "#f0c040";
+	private static final String COLOR_TARGET_MISSING  = "#cc4444";
+
 	private final JLabel statusValue = valueLabel();
 	private final JLabel groupValue = valueLabel();
 	private final JLabel syncValue = valueLabel();
@@ -116,6 +124,8 @@ class GimBossUniquesPanel extends PluginPanel
 		int denominator = Math.max(viewModel.getMemberCount(), 1);
 		StringBuilder html = new StringBuilder();
 		html.append("<html><body style='font-family:sans-serif; color:#d8d8d8; background:#1e1e1e;'>");
+
+		// Members
 		html.append("<h3 style='margin-top:0;'>Group members</h3>");
 		if (viewModel.getMembers().isEmpty())
 		{
@@ -126,6 +136,33 @@ class GimBossUniquesPanel extends PluginPanel
 			html.append("<p>").append(escapeHtml(String.join(", ", viewModel.getMembers()))).append("</p>");
 		}
 
+		// Target progress
+		List<SyncModels.TargetProgressResponse> targets = viewModel.getTargetProgress();
+		if (!targets.isEmpty())
+		{
+			html.append("<h3 style='margin-bottom:6px;'>Target progress</h3>");
+			html.append("<table width='100%' cellspacing='0' cellpadding='4' style='border-collapse:collapse; margin-bottom:10px;'>");
+			html.append("<tr style='background:#2a2a2a;'>")
+				.append("<th align='left'>Item</th>")
+				.append("<th align='left'>Progress</th>")
+				.append("<th align='left'>Remaining</th>")
+				.append("</tr>");
+
+			for (SyncModels.TargetProgressResponse target : targets)
+			{
+				String color = target.missingQuantity == 0 ? COLOR_TARGET_DONE
+					: target.currentQuantity > 0 ? COLOR_TARGET_PROGRESS
+					: COLOR_TARGET_MISSING;
+				html.append("<tr>")
+					.append("<td style='color:").append(color).append(";'>").append(escapeHtml(target.itemName)).append("</td>")
+					.append("<td>").append(target.currentQuantity).append("/").append(target.targetQuantity).append("</td>")
+					.append("<td>").append(target.missingQuantity).append("</td>")
+					.append("</tr>");
+			}
+			html.append("</table>");
+		}
+
+		// Boss sections
 		for (BossUniqueOverviewBuilder.BossSection section : viewModel.getSections())
 		{
 			if (section.getRows().isEmpty())
@@ -144,8 +181,22 @@ class GimBossUniquesPanel extends PluginPanel
 
 			for (BossUniqueOverviewBuilder.BossUniqueRow row : section.getRows())
 			{
+				String color;
+				if (viewModel.getMemberCount() > 0 && row.getOwnerCount() >= viewModel.getMemberCount())
+				{
+					color = COLOR_COMPLETE;
+				}
+				else if (row.getOwnerCount() > 0)
+				{
+					color = COLOR_PARTIAL;
+				}
+				else
+				{
+					color = COLOR_MISSING;
+				}
+
 				html.append("<tr>")
-					.append("<td>").append(escapeHtml(row.getItemName())).append("</td>")
+					.append("<td style='color:").append(color).append(";'>").append(escapeHtml(row.getItemName())).append("</td>")
 					.append("<td>").append(row.getOwnerCount()).append("/").append(denominator).append("</td>")
 					.append("<td>").append(row.getTotalQuantity()).append("</td>")
 					.append("<td>").append(escapeHtml(row.getOwners().isEmpty() ? "-" : String.join(", ", row.getOwners()))).append("</td>")

@@ -58,4 +58,14 @@ public interface GimBossUniquesConfig extends Config
 	{
 		return false;
 	}
+
+	@ConfigItem(
+		keyName = "autoRefreshIntervalSeconds",
+		name = "Auto-refresh interval (s)",
+		description = "Refresh the group overview automatically every N seconds while logged in. Set to 0 to disable."
+	)
+	default int autoRefreshIntervalSeconds()
+	{
+		return 120;
+	}
 }

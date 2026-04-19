@@ -229,6 +229,44 @@ pre {
     color: #8b2f2f;
 }
 
+/* Row status colors */
+.row--complete td:first-child {
+    color: #2d6b2d;
+    font-weight: 600;
+}
+
+.row--partial td:first-child {
+    color: #7a5800;
+    font-weight: 600;
+}
+
+.row--missing td:first-child {
+    color: #8b2f2f;
+}
+
+/* Wide card spans full grid width */
+.card--wide {
+    grid-column: 1 / -1;
+}
+
+/* Small inline button */
+.button-sm {
+    padding: 0.25rem 0.65rem;
+    font-size: 0.8rem;
+    vertical-align: middle;
+}
+
+/* Danger button variant */
+.button-danger {
+    background: rgba(166, 71, 71, 0.15);
+    color: #8b2f2f;
+    border-color: rgba(166, 71, 71, 0.3);
+}
+
+.button-danger:hover {
+    background: rgba(166, 71, 71, 0.25);
+}
+
 @media (max-width: 720px) {
     .shell {
         padding-top: 2rem;
