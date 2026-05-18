@@ -228,11 +228,6 @@ public class GimBossUniquesPlugin extends Plugin
 			{
 				renderPlaceholder("Overview refresh failed: " + e.getMessage() + ". " + localProgressText());
 			}
-			catch (InterruptedException e)
-			{
-				Thread.currentThread().interrupt();
-				renderPlaceholder("Overview refresh interrupted.");
-			}
 			catch (RuntimeException e)
 			{
 				log.warn("Overview refresh failed", e);
@@ -320,11 +315,6 @@ public class GimBossUniquesPlugin extends Plugin
 		{
 			log.warn("Collection log upload failed", e);
 			renderPlaceholder("Collection-log upload failed: " + e.getMessage() + ". " + localProgressText());
-		}
-		catch (InterruptedException e)
-		{
-			Thread.currentThread().interrupt();
-			renderPlaceholder("Collection-log upload interrupted.");
 		}
 		catch (RuntimeException e)
 		{
