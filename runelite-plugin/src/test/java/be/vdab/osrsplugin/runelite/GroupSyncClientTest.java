@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import okhttp3.OkHttpClient;
 import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;
@@ -17,7 +18,7 @@ public class GroupSyncClientTest
 	@Test
 	public void fetchOverviewShouldRejectInvalidBaseUrl() throws Exception
 	{
-		GroupSyncClient client = new GroupSyncClient(new Gson());
+		GroupSyncClient client = new GroupSyncClient(new OkHttpClient(), new Gson());
 
 		try
 		{
@@ -39,7 +40,7 @@ public class GroupSyncClientTest
 
 		try
 		{
-			GroupSyncClient client = new GroupSyncClient(new Gson());
+			GroupSyncClient client = new GroupSyncClient(new OkHttpClient(), new Gson());
 			client.fetchOverview("http://127.0.0.1:" + server.getAddress().getPort(), "grp-test");
 			fail("Expected invalid JSON response to fail");
 		}

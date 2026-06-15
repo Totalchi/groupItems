@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 final class BossUniqueOverviewBuilder
@@ -18,7 +17,7 @@ final class BossUniqueOverviewBuilder
 			{
 				continue;
 			}
-			summaryIndex.put(normalize(itemSummary.itemName), itemSummary);
+			summaryIndex.put(BossUniqueCatalog.normalizeItem(itemSummary.itemName), itemSummary);
 		}
 
 		List<BossSection> sections = new ArrayList<>();
@@ -82,11 +81,6 @@ final class BossUniqueOverviewBuilder
 	private <T> List<T> safeList(List<T> values)
 	{
 		return values == null ? Collections.<T>emptyList() : values;
-	}
-
-	private String normalize(String itemName)
-	{
-		return itemName.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
 	}
 
 	static final class GroupOverviewViewModel
